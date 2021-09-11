@@ -78,10 +78,11 @@ public class ImageSavePlugin implements MethodCallHandler, FlutterPlugin, Activi
         byte[] data = call.argument("imageData");
         String imageName = call.argument("imageName");
         String albumName = call.argument("albumName");
+        String folderName = call.argument("folderName");
         Boolean overwriteSameNameFile = call.argument("overwriteSameNameFile");
         switch (call.method) {
             case "saveImage":
-                saveImageCall(data, imageName, albumName, overwriteSameNameFile);
+                saveImageCall(data, imageName, albumName, folderName, overwriteSameNameFile);
                 break;
             case "saveImageToSandbox":
                 saveImageToSandboxCall(data, imageName);
@@ -95,7 +96,7 @@ public class ImageSavePlugin implements MethodCallHandler, FlutterPlugin, Activi
         }
     }
 
-    private void saveImageCall(byte[] data, String imageName, String albumName, Boolean overwrite) {
+    private void saveImageCall(byte[] data, String imageName, String albumName, String folderName, Boolean overwrite) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // For Android 10
             ContentResolver resolver = applicationContext.getContentResolver();
@@ -107,7 +108,7 @@ public class ImageSavePlugin implements MethodCallHandler, FlutterPlugin, Activi
             }
             contentValues.put(MediaStore.Images.Media.DISPLAY_NAME, imageName);
             contentValues.put(MediaStore.Images.Media.MIME_TYPE, URLConnection.getFileNameMap().getContentTypeFor(imageName));
-            contentValues.put(MediaStore.Images.Media.RELATIVE_PATH, DIRECTORY_PICTURES + "/" + albumName);
+            contentValues.put(MediaStore.Images.Media.RELATIVE_PATH, DIRECTORY_PICTURES + "/" + folderName + "/" + albumName);
             Uri uri = resolver.insert(contentUri, contentValues);
             if (uri == null) {
                 result.error("2", "File not found", "The file '" + imageName + "' saves failed");
@@ -125,16 +126,20 @@ public class ImageSavePlugin implements MethodCallHandler, FlutterPlugin, Activi
             MediaScannerConnection.scanFile(applicationContext, new String[]{contentUri.getPath()}, new String[]{"images/*"}, null);
         } else {
             try {
-                result.success(saveImage(data, imageName, albumName, overwrite));
+                result.success(saveImage(data, imageName, albumName, folderName, overwrite));
             } catch (IOException e) {
                 result.error("2", e.getMessage(), "The file '" + imageName + "' already exists");
             }
         }
     }
 
-    private Boolean saveImage(byte[] data, String imageName, String albumName, Boolean overwriteSameNameFile) throws IOException {
+    private Boolean saveImage(byte[] data, String imageName, String albumName, String folderName, Boolean overwriteSameNameFile) throws IOException {
         if (albumName == null) {
             albumName = getApplicationName();
+        }
+        File appDir = new File(Environment.getExternalStoragePublicDirectory(DIRECTORY_PICTURES), folderName);
+        if (!appDir.exists()) {
+            appDir.mkdir();
         }
         File parentDir = new File(Environment.getExternalStoragePublicDirectory(DIRECTORY_PICTURES), albumName);
         if (!parentDir.exists()) {
